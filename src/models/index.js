@@ -1,17 +1,28 @@
 const sequelize = require("../config/database");
 const Shoe = require("./Shoe");
-const SalesTransaction = require("./SalesTransaction");
-const SalesTransactionDetail = require("./SalesTransactionDetail");
+const SaleTransaction = require("./SaleTransaction");
+const SalesTransactionDetail = require("./SaleTransactionDetail");
 
-SalesTransaction.hasMany(SalesTransactionDetail, {
+// Associations
+SaleTransaction.hasMany(SalesTransactionDetail, {
   foreignKey: "transactionId",
   as: "details",
 });
-SalesTransactionDetail.belongsTo(SalesTransaction, {
+SalesTransactionDetail.belongsTo(SaleTransaction, {
   foreignKey: "transactionId",
 });
 
 Shoe.hasMany(SalesTransactionDetail, { foreignKey: "shoeId" });
 SalesTransactionDetail.belongsTo(Shoe, { foreignKey: "shoeId" });
 
-module.exports = { sequelize, Shoe, SalesTransaction, SalesTransactionDetail };
+// 🔹 Sync function
+const syncDB = async () => {
+  try {
+    await sequelize.sync({ alter: true }); 
+    console.log("✅ All models were synchronized successfully.");
+  } catch (error) {
+    console.error("❌ Error syncing models:", error);
+  }
+};
+
+module.exports = { sequelize, Shoe, SaleTransaction, SalesTransactionDetail, syncDB };

@@ -1,9 +1,10 @@
-const router = require("express").Router();
-const ctrl = require("../controllers/shoes");
+const express = require('express');
+const router = express.Router();
+const shoeController = require('../controllers/shoe');
 
-router.get("/", ctrl.list);
-router.post("/", ctrl.create);
+router.post('/', shoeController.createShoe);
+router.get('/', shoeController.getShoes);
+router.put('/:id', shoeController.updateShoe);
+router.delete('/:id', shoeController.deleteShoe);
 
 module.exports = router;
-
-// to add more routes (update, delete, getById)
