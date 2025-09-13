@@ -6,19 +6,20 @@ const SalesTransactionDetail = require("./SaleTransactionDetail");
 // Associations
 SaleTransaction.hasMany(SalesTransactionDetail, {
   foreignKey: "transactionId",
-  as: "details",
+  as: "details", // Add this alias
 });
 SalesTransactionDetail.belongsTo(SaleTransaction, {
   foreignKey: "transactionId",
 });
 
-Shoe.hasMany(SalesTransactionDetail, { foreignKey: "shoeId" });
-SalesTransactionDetail.belongsTo(Shoe, { foreignKey: "shoeId" });
+SalesTransactionDetail.belongsTo(Shoe, {
+  foreignKey: "shoeId",
+});
 
 // 🔹 Sync function
 const syncDB = async () => {
   try {
-    await sequelize.sync({ alter: true }); 
+    await sequelize.sync({ alter: true });
     console.log("✅ All models were synchronized successfully.");
   } catch (error) {
     console.error("❌ Error syncing models:", error);

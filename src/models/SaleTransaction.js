@@ -1,16 +1,36 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 
-const SalesTransaction = sequelize.define(
-  "SalesTransaction",
+const SaleTransaction = sequelize.define(
+  "SaleTransaction",
   {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    transactionDateTime: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    totalAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
-    paymentMethod: { type: DataTypes.STRING },
-    notes: { type: DataTypes.STRING },
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    transactionDateTime: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
+    },
+    totalAmount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false
+    },
+    paymentMethod: {
+      type: DataTypes.STRING,
+      defaultValue: 'cash'
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    }
   },
-  { tableName: "sales_transactions", timestamps: true }
+  {
+    tableName: "sales_transactions",
+    timestamps: true
+  }
 );
 
-module.exports = SalesTransaction;
+module.exports = SaleTransaction;

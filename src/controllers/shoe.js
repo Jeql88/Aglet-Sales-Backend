@@ -30,16 +30,17 @@ exports.updateShoe = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    const [affected] = await Shoe.update(updates, { where: { id } });
-    if (affected) {
-      console.log(`[UPDATE] Shoe id=${id} updated:`, updates);
-      const updatedShoe = await Shoe.findByPk(id);
-      res.json(updatedShoe);
-    } else {
-      res.status(404).json({ error: "Shoe not found" });
+    const shoe = await Shoe.findByPk(id);
+    
+    if (!shoe) {
+      return res.status(404).json({ error: "Shoe not found" });
     }
+
+    await shoe.update(updates);
+    console.log(`[UPDATE] Shoe ${id} updated:`, updates);
+    res.json(shoe);
   } catch (err) {
-    console.error(`[UPDATE] Shoe error:`, err.message);
+    console.error(`[UPDATE] Error:`, err.message);
     res.status(400).json({ error: err.message });
   }
 };
@@ -48,15 +49,17 @@ exports.updateShoe = async (req, res) => {
 exports.deleteShoe = async (req, res) => {
   try {
     const { id } = req.params;
-    const affected = await Shoe.destroy({ where: { id } });
-    if (affected) {
-      console.log(`[DELETE] Shoe id=${id} deleted`);
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: "Shoe not found" });
+    const shoe = await Shoe.findByPk(id);
+    
+    if (!shoe) {
+      return res.status(404).json({ error: "Shoe not found" });
     }
+
+    await shoe.destroy();
+    console.log(`[DELETE] Shoe ${id} deleted`);
+    res.json({ message: "Shoe deleted successfully" });
   } catch (err) {
-    console.error(`[DELETE] Shoe error:`, err.message);
+    console.error(`[DELETE] Error:`, err.message);
     res.status(400).json({ error: err.message });
   }
 };

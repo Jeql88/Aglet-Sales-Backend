@@ -2,11 +2,13 @@ const express = require("express");
 const cors = require("cors");
 const { sequelize, syncDB } = require("./models"); 
 const shoeRoutes = require('./routes/shoe');
+const saleRoutes = require('./routes/sales');
 
 const app = express();
 app.use(cors()); // Add this before routes
 app.use(express.json());
 app.use('/api/shoes', shoeRoutes);
+app.use('/api/sales', saleRoutes);
 
 // test route
 app.get("/", (req, res) => res.send("Aglet POS Backend is running!"));
