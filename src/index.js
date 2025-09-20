@@ -3,10 +3,18 @@ const cors = require("cors");
 const { sequelize, syncDB } = require("./models"); 
 const shoeRoutes = require('./routes/shoe');
 const saleRoutes = require('./routes/sales');
+const { specs, swaggerUi } = require('./config/swagger'); // <-- Add this line
 
 const app = express();
 app.use(cors()); // Add this before routes
 app.use(express.json());
+
+// Add Swagger UI route
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
+  explorer: true,
+  customSiteTitle: 'Aglet POS API Docs'
+}));
+
 app.use('/api/shoes', shoeRoutes);
 app.use('/api/sales', saleRoutes);
 
@@ -24,6 +32,7 @@ const startServer = async () => {
 
     app.listen(3000, () => {
       console.log("🚀 Server running at http://localhost:3000");
+      console.log("📚 Swagger docs at http://localhost:3000/api-docs");
     });
   } catch (err) {
     console.error("❌ Unable to start server:", err);
