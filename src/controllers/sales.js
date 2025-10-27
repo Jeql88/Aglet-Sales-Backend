@@ -1,52 +1,83 @@
-const { SaleTransaction, SalesTransactionDetail, Shoe, sequelize } = require('../models');
-const { QueryTypes } = require('sequelize');
+const {
+  SaleTransaction,
+  SalesTransactionDetail,
+  Shoe,
+  sequelize,
+} = require("../models");
+const { QueryTypes } = require("sequelize");
+const imsService = require("../services/ims");
 
 exports.createSale = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
     const { items } = req.body;
-    const total = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    const total = items.reduce(
+      (sum, item) => sum + item.quantity * item.price,
+      0
+    );
 
     // Create sale transaction with timestamp
-    const sale = await SaleTransaction.create({
-      totalAmount: total,
-      date: new Date(),
-      status: 'completed'
-    }, { transaction: t });
+    const sale = await SaleTransaction.create(
+      {
+        totalAmount: total,
+        date: new Date(),
+        status: "completed",
+      },
+      { transaction: t }
+    );
 
     // Create detailed entries for each item
-    const details = await Promise.all(items.map(item => 
-      SalesTransactionDetail.create({
-        transactionId: sale.id,
-        shoeId: item.shoeId,
-        quantity: item.quantity,
-        priceAtSale: item.price,
-        subtotal: item.quantity * item.price
-      }, { transaction: t })
-    ));
+    const details = await Promise.all(
+      items.map((item) =>
+        SalesTransactionDetail.create(
+          {
+            transactionId: sale.id,
+            shoeId: item.shoeId,
+            quantity: item.quantity,
+            priceAtSale: item.price,
+            subtotal: item.quantity * item.price,
+          },
+          { transaction: t }
+        )
+      )
+    );
 
     // Update stock levels
-    await Promise.all(items.map(item =>
-      Shoe.decrement('currentStock', {
-        by: item.quantity,
-        where: { id: item.shoeId },
-        transaction: t
-      })
-    ));
+    await Promise.all(
+      items.map((item) =>
+        Shoe.decrement("currentStock", {
+          by: item.quantity,
+          where: { id: item.shoeId },
+          transaction: t,
+        })
+      )
+    );
 
     await t.commit();
+
+    // Update IMS stock levels via WebSocket (fire and forget for performance)
+    items.forEach((item) => {
+      imsService.updateStock(item.shoeId, -item.quantity).catch((error) => {
+        console.error(
+          `[IMS] Failed to update stock for shoe ${item.shoeId}:`,
+          error.message
+        );
+        // Could implement retry logic or queue for later here
+      });
+    });
+
     console.log(`[SALE] New transaction #${sale.id} created for ₱${total}`);
-    
+
     res.status(201).json({
       id: sale.id,
       total: total,
       date: sale.date,
-      items: details
+      items: details,
     });
   } catch (err) {
     await t.rollback();
-    console.error('[SALE] Error:', err);
+    console.error("[SALE] Error:", err);
     res.status(400).json({ error: err.message });
   }
 };
@@ -54,21 +85,25 @@ exports.createSale = async (req, res) => {
 exports.getSales = async (req, res) => {
   try {
     const sales = await SaleTransaction.findAll({
-      include: [{
-        model: SalesTransactionDetail,
-        as: 'details',
-        include: [{
-          model: Shoe,
-          attributes: ['brand', 'model']
-        }]
-      }],
-      order: [['transactionDateTime', 'DESC']] // Changed from 'date' to 'transactionDateTime'
+      include: [
+        {
+          model: SalesTransactionDetail,
+          as: "details",
+          include: [
+            {
+              model: Shoe,
+              attributes: ["brand", "model"],
+            },
+          ],
+        },
+      ],
+      order: [["transactionDateTime", "DESC"]], // Changed from 'date' to 'transactionDateTime'
     });
 
     console.log(`[REPORT] Fetched ${sales.length} sales`);
     res.json(sales);
   } catch (err) {
-    console.error('[REPORT] Error:', err);
+    console.error("[REPORT] Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -76,7 +111,7 @@ exports.getSales = async (req, res) => {
 exports.getDashboardStats = async (req, res) => {
   try {
     // Get total sales amount
-    const totalSales = await SaleTransaction.sum('totalAmount');
+    const totalSales = await SaleTransaction.sum("totalAmount");
 
     // Calculate revenue using correct column names
     const revenueQuery = `
@@ -105,24 +140,25 @@ exports.getDashboardStats = async (req, res) => {
 
     // Get recent transactions
     const recentTransactions = await SaleTransaction.findAll({
-      include: [{
-        model: SalesTransactionDetail,
-        as: 'details',
-        include: [Shoe]
-      }],
-      order: [['transactionDateTime', 'DESC']],
-      limit: 5
+      include: [
+        {
+          model: SalesTransactionDetail,
+          as: "details",
+          include: [Shoe],
+        },
+      ],
+      order: [["transactionDateTime", "DESC"]],
+      limit: 5,
     });
 
     res.json({
       totalSales: totalSales || 0,
       revenue,
       topProduct: topProduct[0] || null,
-      recentTransactions
+      recentTransactions,
     });
-
   } catch (err) {
-    console.error('[DASHBOARD] Error:', err);
+    console.error("[DASHBOARD] Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
