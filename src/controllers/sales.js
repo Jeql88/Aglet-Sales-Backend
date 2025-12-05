@@ -56,7 +56,7 @@ exports.createSale = async (req, res) => {
 
     await t.commit();
 
-    // Update IMS stock levels via WebSocket (fire and forget for performance)
+    // Update IMS stock levels via WebSocket
     items.forEach((item) => {
       imsService.updateStock(item.shoeId, -item.quantity).catch((error) => {
         console.error(

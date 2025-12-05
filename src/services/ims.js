@@ -4,9 +4,21 @@ class IMSService {
   constructor() {
     this.ws = null;
     this.isConnected = false;
-    this.reconnectInterval = 5000; // 5 seconds
+    this.reconnectInterval = 5000;
     this.imsHost = process.env.IMS_HOST || "localhost";
-    this.imsPort = process.env.IMS_PORT || "5000"; // Assuming IMS runs on port 5000
+    this.imsPort = process.env.IMS_PORT || "5172";
+    this.posClients = new Set();
+    this.pendingRequests = new Map();
+  }
+
+  addPOSClient(client) {
+    this.posClients.add(client);
+    console.log(`[IMS] POS client connected. Total: ${this.posClients.size}`);
+  }
+
+  removePOSClient(client) {
+    this.posClients.delete(client);
+    console.log(`[IMS] POS client disconnected. Total: ${this.posClients.size}`);
   }
 
   connect() {
@@ -38,7 +50,7 @@ class IMSService {
     this.ws.on("close", () => {
       console.log("[IMS] Connection closed");
       this.isConnected = false;
-      // Auto-reconnect after interval
+      this.rejectPendingRequests();
       setTimeout(() => this.connect(), this.reconnectInterval);
     });
 
@@ -48,15 +60,37 @@ class IMSService {
     });
   }
 
+  rejectPendingRequests() {
+    this.pendingRequests.forEach((request) => {
+      clearTimeout(request.timeout);
+      request.reject(new Error("Connection closed"));
+    });
+    this.pendingRequests.clear();
+  }
+
   handleMessage(message) {
     console.log("[IMS] Received message:", message);
+
+    const requestKey = `${message.type}_${message.shoeId}`;
+    const pending = this.pendingRequests.get(requestKey);
+
+    if (pending) {
+      clearTimeout(pending.timeout);
+      this.pendingRequests.delete(requestKey);
+      pending.resolve(message);
+    }
 
     switch (message.type) {
       case "stock_updated":
         console.log(
           `[IMS] Stock updated for shoe ${message.shoeId}: ${message.newStock}`
         );
-        // Could emit event or update local cache here
+        break;
+      case "stock_changed":
+        console.log(
+          `[IMS] Stock changed broadcast for shoe ${message.shoeId}: ${message.currentStock} (${message.change > 0 ? "+" : ""}${message.change})`
+        );
+        this.broadcastToClients(message);
         break;
       case "stock_info":
         console.log(
@@ -69,6 +103,24 @@ class IMSService {
       default:
         console.log("[IMS] Unknown message type:", message.type);
     }
+  }
+
+  broadcastToClients(message) {
+    const deadClients = [];
+    this.posClients.forEach((client) => {
+      try {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(message));
+        } else {
+          deadClients.push(client);
+        }
+      } catch (error) {
+        console.error("[IMS] Error broadcasting to client:", error);
+        deadClients.push(client);
+      }
+    });
+
+    deadClients.forEach((client) => this.posClients.delete(client));
   }
 
   async updateStock(shoeId, quantityChange) {
@@ -84,30 +136,19 @@ class IMSService {
     };
 
     return new Promise((resolve, reject) => {
+      const requestKey = `stock_updated_${shoeId}`;
+
       const timeout = setTimeout(() => {
+        this.pendingRequests.delete(requestKey);
         reject(new Error("IMS update timeout"));
-      }, 10000); // 10 second timeout
+      }, 10000);
 
-      // Set up one-time message handler for response
-      const messageHandler = (data) => {
-        try {
-          const response = JSON.parse(data.toString());
-          if (response.type === "stock_updated" && response.shoeId === shoeId) {
-            clearTimeout(timeout);
-            this.ws.removeListener("message", messageHandler);
-            resolve(response);
-          }
-        } catch (error) {
-          // Ignore parsing errors for other messages
-        }
-      };
-
-      this.ws.on("message", messageHandler);
+      this.pendingRequests.set(requestKey, { resolve, reject, timeout });
 
       this.ws.send(JSON.stringify(message), (error) => {
         if (error) {
           clearTimeout(timeout);
-          this.ws.removeListener("message", messageHandler);
+          this.pendingRequests.delete(requestKey);
           reject(error);
         }
       });
@@ -126,34 +167,23 @@ class IMSService {
     };
 
     return new Promise((resolve, reject) => {
+      const requestKey = `stock_info_${shoeId}`;
+
       const timeout = setTimeout(() => {
+        this.pendingRequests.delete(requestKey);
         reject(new Error("IMS query timeout"));
-      }, 10000); // 10 second timeout
+      }, 10000);
 
-      // Set up one-time message handler for response
-      const messageHandler = (data) => {
-        try {
-          const response = JSON.parse(data.toString());
-          if (response.type === "stock_info" && response.shoeId === shoeId) {
-            clearTimeout(timeout);
-            this.ws.removeListener("message", messageHandler);
-            resolve(response.currentStock);
-          }
-        } catch (error) {
-          // Ignore parsing errors for other messages
-        }
-      };
-
-      this.ws.on("message", messageHandler);
+      this.pendingRequests.set(requestKey, { resolve, reject, timeout });
 
       this.ws.send(JSON.stringify(message), (error) => {
         if (error) {
           clearTimeout(timeout);
-          this.ws.removeListener("message", messageHandler);
+          this.pendingRequests.delete(requestKey);
           reject(error);
         }
       });
-    });
+    }).then((response) => response.currentStock);
   }
 
   disconnect() {

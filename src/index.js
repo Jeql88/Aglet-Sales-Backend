@@ -1,13 +1,14 @@
 const express = require("express");
 const cors = require("cors");
+const WebSocket = require("ws");
 const { sequelize, syncDB } = require("./models");
 const shoeRoutes = require("./routes/shoe");
 const saleRoutes = require("./routes/sales");
-const { specs, swaggerUi } = require("./config/swagger"); // <-- Add this line
+const { specs, swaggerUi } = require("./config/swagger");
 const imsService = require("./services/ims");
 
 const app = express();
-app.use(cors()); // Add this before routes
+app.use(cors());
 app.use(express.json());
 
 // Add Swagger UI route
@@ -38,10 +39,29 @@ const startServer = async () => {
     // Connect to IMS WebSocket service
     imsService.connect();
 
-    app.listen(3000, () => {
+    const server = app.listen(3000, () => {
       console.log("🚀 Server running at http://localhost:3000");
       console.log("📚 Swagger docs at http://localhost:3000/api-docs");
     });
+
+    // WebSocket server for POS clients
+    const wss = new WebSocket.Server({ server, path: "/ws" });
+
+    wss.on("connection", (ws) => {
+      console.log("[WS] POS client connected");
+      imsService.addPOSClient(ws);
+
+      ws.on("close", () => {
+        console.log("[WS] POS client disconnected");
+        imsService.removePOSClient(ws);
+      });
+
+      ws.on("error", (error) => {
+        console.error("[WS] Client error:", error);
+      });
+    });
+
+    console.log("🔌 WebSocket server running at ws://localhost:3000/ws");
   } catch (err) {
     console.error("❌ Unable to start server:", err);
   }
