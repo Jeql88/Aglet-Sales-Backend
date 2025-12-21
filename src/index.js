@@ -48,7 +48,6 @@ const startServer = async () => {
     const wss = new WebSocket.Server({ server, path: "/ws" });
 
     wss.on("connection", (ws) => {
-      console.log("[WS] POS client connected");
       imsService.addPOSClient(ws);
 
       ws.on("close", () => {

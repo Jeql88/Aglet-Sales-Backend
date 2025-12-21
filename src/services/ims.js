@@ -13,7 +13,6 @@ class IMSService {
 
   addPOSClient(client) {
     this.posClients.add(client);
-    console.log(`[IMS] POS client connected. Total: ${this.posClients.size}`);
   }
 
   removePOSClient(client) {
@@ -85,11 +84,20 @@ class IMSService {
         console.log(
           `[IMS] Stock updated for shoe ${message.shoeId}: ${message.newStock}`
         );
+        this.broadcastToClients(message);
         break;
       case "stock_changed":
         console.log(
           `[IMS] Stock changed broadcast for shoe ${message.shoeId}: ${message.currentStock} (${message.change > 0 ? "+" : ""}${message.change})`
         );
+        this.broadcastToClients(message);
+        break;
+      case "shoe_added":
+        console.log(`[IMS] New shoe added: ${message.shoeId}`);
+        this.broadcastToClients(message);
+        break;
+      case "shoe_updated":
+        console.log(`[IMS] Shoe updated: ${message.shoeId}`);
         this.broadcastToClients(message);
         break;
       case "stock_info":
@@ -102,6 +110,7 @@ class IMSService {
         break;
       default:
         console.log("[IMS] Unknown message type:", message.type);
+        this.broadcastToClients(message);
     }
   }
 
@@ -222,6 +231,7 @@ class IMSService {
         imsShoes = response.data;
       }
 
+      console.log(`[IMS] Fetched ${imsShoes.length} shoes from IMS`);
       return imsShoes;
     } catch (error) {
       console.error("[IMS] Failed to fetch shoes:", error.message);

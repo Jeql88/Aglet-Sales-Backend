@@ -33,7 +33,6 @@ exports.getShoes = async (req, res) => {
       return shoe.toJSON();
     });
 
-    console.log(`[READ] Fetched ${shoes.length} shoes from IMS`);
     res.json(shoes);
   } catch (err) {
     console.error(`[READ] Shoes error:`, err.message);
