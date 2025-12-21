@@ -186,6 +186,83 @@ class IMSService {
     }).then((response) => response.currentStock);
   }
 
+  /**
+   * Fetch all shoes from IMS
+   * @returns {Promise<Array>} Array of shoe objects from IMS
+   */
+  async getAllShoes() {
+    try {
+      const axios = require("axios");
+
+      const imsUrl =
+        process.env.IMS_PORT === "7183"
+          ? `https://localhost:${process.env.IMS_PORT}`
+          : `http://localhost:${process.env.IMS_PORT || "5172"}`;
+
+      const response = await axios.get(
+        `${imsUrl}/api/Shoes?pageNumber=1&pageSize=1000`,
+        {
+          timeout: 5000,
+          httpsAgent:
+            process.env.IMS_PORT === "7183"
+              ? new (require("https").Agent)({
+                  rejectUnauthorized: false,
+                })
+              : undefined,
+        }
+      );
+
+      // Handle different response formats from IMS
+      let imsShoes = [];
+      if (response.data.data && Array.isArray(response.data.data)) {
+        imsShoes = response.data.data;
+      } else if (response.data.Data && Array.isArray(response.data.Data)) {
+        imsShoes = response.data.Data;
+      } else if (Array.isArray(response.data)) {
+        imsShoes = response.data;
+      }
+
+      return imsShoes;
+    } catch (error) {
+      console.error("[IMS] Failed to fetch shoes:", error.message);
+      throw new Error("Failed to fetch shoes from IMS");
+    }
+  }
+
+  /**
+   * Fetch a single shoe by ID from IMS
+   * @param {number} shoeId - Shoe ID
+   * @returns {Promise<Object>} Shoe object from IMS
+   */
+  async getShoeById(shoeId) {
+    try {
+      const axios = require("axios");
+
+      const imsUrl =
+        process.env.IMS_PORT === "7183"
+          ? `https://localhost:${process.env.IMS_PORT}`
+          : `http://localhost:${process.env.IMS_PORT || "5172"}`;
+
+      const response = await axios.get(
+        `${imsUrl}/api/Shoes/${shoeId}`,
+        {
+          timeout: 5000,
+          httpsAgent:
+            process.env.IMS_PORT === "7183"
+              ? new (require("https").Agent)({
+                  rejectUnauthorized: false,
+                })
+              : undefined,
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(`[IMS] Failed to fetch shoe ${shoeId}:`, error.message);
+      throw new Error(`Shoe ${shoeId} not found in IMS`);
+    }
+  }
+
   disconnect() {
     if (this.ws) {
       this.ws.close();

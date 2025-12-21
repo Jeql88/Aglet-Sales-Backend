@@ -1,22 +1,21 @@
 const sequelize = require("../config/database");
-const Shoe = require("./Shoe");
+const Shoe = require("./Shoe"); // Virtual model, no table
 const SaleTransaction = require("./SaleTransaction");
 const SalesTransactionDetail = require("./SaleTransactionDetail");
 
-// Associations
+// Associations - Note: Shoe is now virtual, associations are for query compatibility only
 SaleTransaction.hasMany(SalesTransactionDetail, {
   foreignKey: "transactionId",
-  as: "details", // Add this alias
+  as: "details",
 });
 SalesTransactionDetail.belongsTo(SaleTransaction, {
   foreignKey: "transactionId",
 });
 
-SalesTransactionDetail.belongsTo(Shoe, {
-  foreignKey: "shoeId",
-});
+// Note: SalesTransactionDetail.belongsTo(Shoe) removed since Shoe is virtual
+// Shoe data will be fetched from IMS and merged in controllers
 
-// 🔹 Sync function
+// Sync function - only syncs actual database tables
 const syncDB = async () => {
   try {
     await sequelize.sync({ alter: true });
