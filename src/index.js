@@ -36,8 +36,11 @@ const startServer = async () => {
     await syncDB(); // this now works!
     console.log("✅ Models synced with the database.");
 
-    // Connect to IMS WebSocket service
-    imsService.connect();
+    // Delay initial connection to prevent startup race condition
+    setTimeout(() => {
+      console.log("[IMS] Initiating delayed connection...");
+      imsService.connect();
+    }, 2000);
 
     const server = app.listen(3000, () => {
       console.log("🚀 Server running at http://localhost:3000");
